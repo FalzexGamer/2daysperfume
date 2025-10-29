@@ -2,51 +2,62 @@
 include '../include/conn.php';
 
 // Get form data
-$member_code = $_POST['member_code'] ?? '';
-$name = $_POST['name'] ?? '';
+$first_name = $_POST['first_name'] ?? '';
+$last_name = $_POST['last_name'] ?? '';
 $phone = $_POST['phone'] ?? '';
 $email = $_POST['email'] ?? '';
 $address = $_POST['address'] ?? '';
-$membership_tier_id = $_POST['membership_tier_id'] ?? '';
-$is_active = isset($_POST['is_active']) ? 1 : 0;
+$tier = $_POST['tier'] ?? 'bronze';
+$is_active = isset($_POST['is_active']) ? 0 : 1; // Inverted logic: is_active=1 means is_guest=0
 
 // Validation
-if (empty($member_code) || empty($name)) {
-    echo json_encode(['success' => false, 'message' => 'Member Code and Name are required']);
+if (empty($first_name) || empty($last_name) || empty($email)) {
+    echo json_encode(['success' => false, 'message' => 'First Name, Last Name, and Email are required']);
     exit;
 }
 
-// Check if member code already exists
-$stmt_check = mysqli_prepare($conn, "SELECT id FROM members WHERE member_code = ?");
-mysqli_stmt_bind_param($stmt_check, "s", $member_code);
+// Check if email already exists
+$stmt_check = mysqli_prepare($conn2, "SELECT id FROM users WHERE email = ? AND is_guest = 0");
+mysqli_stmt_bind_param($stmt_check, "s", $email);
 mysqli_stmt_execute($stmt_check);
 $result_check = mysqli_stmt_get_result($stmt_check);
 
 if (mysqli_num_rows($result_check) > 0) {
-    echo json_encode(['success' => false, 'message' => 'Member Code already exists']);
+    echo json_encode(['success' => false, 'message' => 'Email already exists']);
     exit;
 }
 
-// Insert new member
-$stmt_insert = mysqli_prepare($conn, "
-    INSERT INTO members (member_code, name, phone, email, address, membership_tier_id, is_active, total_spent, total_points)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+// Insert new user
+$stmt_insert = mysqli_prepare($conn2, "
+    INSERT INTO users (first_name, last_name, phone, email, address, is_guest, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
 ");
 
-mysqli_stmt_bind_param($stmt_insert, "sssssii",
-    $member_code,
-    $name,
+mysqli_stmt_bind_param($stmt_insert, "sssssi",
+    $first_name,
+    $last_name,
     $phone,
     $email,
     $address,
-    $membership_tier_id,
     $is_active
 );
 
 if (mysqli_stmt_execute($stmt_insert)) {
+    $user_id = mysqli_insert_id($conn2);
+    
+    // Insert loyalty points record
+    $stmt_loyalty = mysqli_prepare($conn2, "
+        INSERT INTO user_loyalty_points (user_id, tier, total_spent, points, created_at, updated_at)
+        VALUES (?, ?, 0, 0, NOW(), NOW())
+    ");
+    
+    mysqli_stmt_bind_param($stmt_loyalty, "is", $user_id, $tier);
+    mysqli_stmt_execute($stmt_loyalty);
+    mysqli_stmt_close($stmt_loyalty);
+    
     echo json_encode(['success' => true, 'message' => 'Member saved successfully']);
 } else {
-    echo json_encode(['success' => false, 'message' => 'Failed to save member: ' . mysqli_error($conn)]);
+    echo json_encode(['success' => false, 'message' => 'Failed to save member: ' . mysqli_error($conn2)]);
 }
 
 mysqli_stmt_close($stmt_check);

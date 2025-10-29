@@ -245,13 +245,13 @@ include 'include/sidebar.php';
                         
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div class="space-y-2">
-                                <label class="block text-sm font-semibold text-gray-700">Member Code *</label>
-                                <input type="text" id="member_code" name="member_code" required 
+                                <label class="block text-sm font-semibold text-gray-700">First Name *</label>
+                                <input type="text" id="first_name" name="first_name" required 
                                        class="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
                             </div>
                             <div class="space-y-2">
-                                <label class="block text-sm font-semibold text-gray-700">Full Name *</label>
-                                <input type="text" id="name" name="name" required 
+                                <label class="block text-sm font-semibold text-gray-700">Last Name *</label>
+                                <input type="text" id="last_name" name="last_name" required 
                                        class="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
                             </div>
                         </div>
@@ -297,9 +297,12 @@ include 'include/sidebar.php';
                         
                         <div class="space-y-2">
                             <label class="block text-sm font-semibold text-gray-700">Membership Tier</label>
-                            <select id="membership_tier_id" name="membership_tier_id" 
+                            <select id="tier" name="tier" 
                                     class="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
-                                <option value="">Select Tier</option>
+                                <option value="bronze">Bronze</option>
+                                <option value="silver">Silver</option>
+                                <option value="gold">Gold</option>
+                                <option value="platinum">Platinum</option>
                             </select>
                         </div>
                         
@@ -651,16 +654,15 @@ function updateStats() {
     });
 }
 
-// Load membership tiers
+// Load membership tiers for filter
 function loadMembershipTiers() {
-    $.ajax({
-        url: 'ajax/get-membership-tiers.php',
-        type: 'GET',
-        success: function(response) {
-            $('#membership_tier_id').html(response);
-            $('#tier-filter').html('<option value="">All Tiers</option>' + response);
-        }
-    });
+    $('#tier-filter').html(`
+        <option value="">All Tiers</option>
+        <option value="bronze">Bronze</option>
+        <option value="silver">Silver</option>
+        <option value="gold">Gold</option>
+        <option value="platinum">Platinum</option>
+    `);
 }
 
 // Modal functions
@@ -689,12 +691,12 @@ function openEditModal(id) {
                 }
                 
                 $('#member-id').val(member.id);
-                $('#member_code').val(member.member_code);
-                $('#name').val(member.name);
+                $('#first_name').val(member.first_name);
+                $('#last_name').val(member.last_name);
                 $('#phone').val(member.phone);
                 $('#email').val(member.email);
                 $('#address').val(member.address);
-                $('#membership_tier_id').val(member.membership_tier_id);
+                $('#tier').val(member.tier);
                 $('#is_active').prop('checked', member.is_active == 1);
                 
                 $('#member-modal').removeClass('hidden');

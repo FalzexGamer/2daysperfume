@@ -12,21 +12,21 @@ error_log("Search term: " . $search);
 
 // Only search if there's a search term
 if (!empty($search)) {
-    $search_term = '%' . mysqli_real_escape_string($conn, $search) . '%';
-    $query = "SELECT m.*, mt.name as tier_name, mt.discount_percentage 
-              FROM members m 
-              LEFT JOIN membership_tiers mt ON m.membership_tier_id = mt.id 
-              WHERE m.is_active = 1 
-              AND (m.name LIKE ? OR m.member_code LIKE ? OR m.phone LIKE ?)
+    $search_term = '%' . mysqli_real_escape_string($conn2, $search) . '%';
+    $query = "SELECT u.*, ulp.tier, ulp.total_spent
+              FROM users u 
+              LEFT JOIN user_loyalty_points ulp ON u.id = ulp.user_id 
+              WHERE u.is_guest = 0 
+              AND (CONCAT(u.first_name, ' ', u.last_name) LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)
               ORDER BY 
                 CASE 
-                  WHEN m.member_code LIKE ? THEN 1
-                  WHEN m.name LIKE ? THEN 2
+                  WHEN u.email LIKE ? THEN 1
+                  WHEN CONCAT(u.first_name, ' ', u.last_name) LIKE ? THEN 2
                   ELSE 3
                 END,
-                m.member_code ASC";
+                u.first_name ASC, u.last_name ASC";
     
-    $stmt = mysqli_prepare($conn, $query);
+    $stmt = mysqli_prepare($conn2, $query);
     mysqli_stmt_bind_param($stmt, "sssss", $search_term, $search_term, $search_term, $search_term, $search_term);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
@@ -38,21 +38,21 @@ if (!empty($search)) {
 $members = [];
 
 if ($result && mysqli_num_rows($result) > 0) {
-    error_log("Found " . mysqli_num_rows($result) . " members");
-    while ($member = mysqli_fetch_assoc($result)) {
+    error_log("Found " . mysqli_num_rows($result) . " users");
+    while ($user = mysqli_fetch_assoc($result)) {
         $members[] = [
-            'id' => $member['id'],
-            'name' => $member['name'],
-            'member_code' => $member['member_code'],
-            'phone' => $member['phone'],
-            'email' => $member['email'],
-            'tier_name' => $member['tier_name'] ?: 'No Tier',
-            'discount_percentage' => floatval($member['discount_percentage'] ?: 0),
-            'total_spent' => floatval($member['total_spent'] ?: 0)
+            'id' => $user['id'],
+            'name' => trim($user['first_name'] . ' ' . $user['last_name']),
+            'member_code' => $user['email'], // Using email as member code
+            'phone' => $user['phone'],
+            'email' => $user['email'],
+            'tier_name' => ucfirst($user['tier'] ?: 'Bronze'),
+            'discount_percentage' => 0, // No discount system in users table
+            'total_spent' => floatval($user['total_spent'] ?: 0)
         ];
     }
 } else {
-    error_log("No members found. Result: " . ($result ? "valid" : "invalid"));
+    error_log("No users found. Result: " . ($result ? "valid" : "invalid"));
     if ($result) {
         error_log("Number of rows: " . mysqli_num_rows($result));
     }

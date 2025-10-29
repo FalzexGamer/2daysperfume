@@ -1,12 +1,13 @@
 <?php
 include '../include/conn.php';
 
-// Get all members with their tier information
-$query = "SELECT m.*, mt.name as tier_name 
-          FROM members m 
-          LEFT JOIN membership_tiers mt ON m.membership_tier_id = mt.id 
-          ORDER BY m.name ASC";
-$result = mysqli_query($conn, $query);
+// Get all users with their loyalty tier information
+$query = "SELECT u.*, ulp.tier, ulp.total_spent, ulp.points
+          FROM users u 
+          LEFT JOIN user_loyalty_points ulp ON u.id = ulp.user_id 
+          WHERE u.is_guest = 0
+          ORDER BY u.first_name ASC, u.last_name ASC";
+$result = mysqli_query($conn2, $query);
 
 if (!$result) {
     echo '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Error loading members</td></tr>';
@@ -18,9 +19,13 @@ if (mysqli_num_rows($result) == 0) {
     exit;
 }
 
-while ($member = mysqli_fetch_assoc($result)) {
-    $status_class = $member['is_active'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-    $status_text = $member['is_active'] ? 'Active' : 'Inactive';
+while ($user = mysqli_fetch_assoc($result)) {
+    // Use is_guest to determine status - non-guests are active members
+    $is_active = !$user['is_guest'];
+    $status_class = $is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+    $status_text = $is_active ? 'Active' : 'Inactive';
+    $full_name = trim($user['first_name'] . ' ' . $user['last_name']);
+    $tier_name = ucfirst($user['tier'] ?: 'Bronze');
     
     echo '<tr class="hover:bg-gray-50">';
     echo '<td class="px-6 py-4 whitespace-nowrap">';
@@ -31,29 +36,29 @@ while ($member = mysqli_fetch_assoc($result)) {
     echo '</div>';
     echo '</div>';
     echo '<div class="ml-4">';
-    echo '<div class="text-sm font-medium text-gray-900">' . htmlspecialchars($member['name']) . '</div>';
-    echo '<div class="text-sm text-gray-500">' . htmlspecialchars($member['member_code']) . '</div>';
+    echo '<div class="text-sm font-medium text-gray-900">' . htmlspecialchars($full_name) . '</div>';
+    echo '<div class="text-sm text-gray-500">' . htmlspecialchars($user['email']) . '</div>';
     echo '</div>';
     echo '</div>';
     echo '</td>';
     
     echo '<td class="px-6 py-4 whitespace-nowrap">';
-    echo '<div class="text-sm text-gray-900">' . htmlspecialchars($member['phone'] ?: 'N/A') . '</div>';
-    echo '<div class="text-sm text-gray-500">' . htmlspecialchars($member['email'] ?: 'N/A') . '</div>';
+    echo '<div class="text-sm text-gray-900">' . htmlspecialchars($user['phone'] ?: 'N/A') . '</div>';
+    echo '<div class="text-sm text-gray-500">' . htmlspecialchars($user['email'] ?: 'N/A') . '</div>';
     echo '</td>';
     
     echo '<td class="px-6 py-4 whitespace-nowrap">';
     echo '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">';
-    echo htmlspecialchars($member['tier_name'] ?: 'No Tier');
+    echo htmlspecialchars($tier_name);
     echo '</span>';
     echo '</td>';
     
     echo '<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">';
-    echo 'RM ' . number_format($member['total_spent'] ?? 0, 2);
+    echo 'RM ' . number_format($user['total_spent'] ?? 0, 2);
     echo '</td>';
     
     echo '<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">';
-    echo number_format($member['total_points'] ?? 0);
+    echo number_format($user['points'] ?? 0);
     echo '</td>';
     
     echo '<td class="px-6 py-4 whitespace-nowrap">';
@@ -63,10 +68,10 @@ while ($member = mysqli_fetch_assoc($result)) {
     echo '</td>';
     
     echo '<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">';
-    echo '<button onclick="openEditModal(' . $member['id'] . ')" class="text-blue-600 hover:text-blue-900 mr-3">';
+    echo '<button onclick="openEditModal(' . $user['id'] . ')" class="text-blue-600 hover:text-blue-900 mr-3">';
     echo '<i class="fas fa-edit"></i>';
     echo '</button>';
-    echo '<button onclick="deleteMember(' . $member['id'] . ')" class="text-red-600 hover:text-red-900">';
+    echo '<button onclick="deleteMember(' . $user['id'] . ')" class="text-red-600 hover:text-red-900">';
     echo '<i class="fas fa-trash"></i>';
     echo '</button>';
     echo '</td>';

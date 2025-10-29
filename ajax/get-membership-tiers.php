@@ -1,9 +1,9 @@
 <?php
 include '../include/conn.php';
 
-// Get active membership tiers
-$query = "SELECT id, name, discount_percentage FROM membership_tiers WHERE is_active = 1 ORDER BY name ASC";
-$result = mysqli_query($conn, $query);
+// Get active royal tiers from igoldser_perfume2days database
+$query = "SELECT id, tier_name as name, tier_level, min_points, max_points, tier_color, benefits FROM royal_tiers WHERE is_active = 1 ORDER BY tier_level ASC";
+$result = mysqli_query($conn2, $query);
 
 $tiers = [];
 if ($result && mysqli_num_rows($result) > 0) {
@@ -11,7 +11,12 @@ if ($result && mysqli_num_rows($result) > 0) {
         $tiers[] = [
             'id' => $tier['id'],
             'name' => $tier['name'],
-            'discount_percentage' => floatval($tier['discount_percentage'])
+            'tier_level' => intval($tier['tier_level']),
+            'min_points' => intval($tier['min_points']),
+            'max_points' => $tier['max_points'] ? intval($tier['max_points']) : null,
+            'tier_color' => $tier['tier_color'],
+            'benefits' => $tier['benefits'],
+            'discount_percentage' => 0 // No discount system in royal_tiers
         ];
     }
 }
