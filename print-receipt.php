@@ -9,14 +9,32 @@ if (empty($invoice_number)) {
 
 // Get sale details
 $query_sale = mysqli_query($conn, "
-    SELECT s.*, m.name as member_name, m.member_code, u.full_name as cashier_name, cs.company_name, cs.address, cs.phone
+    SELECT s.*, s.member_id, s.user_id, cs.company_name, cs.address, cs.phone
     FROM sales s 
-    LEFT JOIN members m ON s.member_id = m.id 
-    LEFT JOIN users u ON s.user_id = u.id 
     LEFT JOIN company_settings cs ON 1=1
     WHERE s.invoice_number = '$invoice_number'
 ");
 $sale = mysqli_fetch_array($query_sale);
+
+// Get member details from conn2 database
+$member_name = '';
+$member_code = '';
+if ($sale['member_id'] > 0) {
+    $member_query = mysqli_query($conn2, "SELECT CONCAT(first_name, ' ', last_name) as full_name, id FROM users WHERE id = " . $sale['member_id']);
+    if ($member_result = mysqli_fetch_array($member_query)) {
+        $member_name = $member_result['full_name'];
+        $member_code = 'M' . str_pad($member_result['id'], 4, '0', STR_PAD_LEFT); // Generate member code
+    }
+}
+
+// Get cashier details from conn2 database
+$cashier_name = 'Unknown';
+if ($sale['user_id'] > 0) {
+    $cashier_query = mysqli_query($conn2, "SELECT CONCAT(first_name, ' ', last_name) as full_name FROM users WHERE id = " . $sale['user_id']);
+    if ($cashier_result = mysqli_fetch_array($cashier_query)) {
+        $cashier_name = $cashier_result['full_name'];
+    }
+}
 
 if (!$sale) {
     die('Sale not found');
@@ -196,9 +214,9 @@ $query_items = mysqli_query($conn, "
         <div class="invoice-info">
             <div class="invoice-number">Invoice: <?= $invoice_number ?></div>
             <div class="date-time">Date: <?= date('d/m/Y H:i', strtotime($sale['created_at'])) ?></div>
-            <div class="cashier">Cashier: <?= $sale['cashier_name'] ?></div>
-            <?php if ($sale['member_name']): ?>
-            <div class="member">Member: <?= $sale['member_name'] ?> (<?= $sale['member_code'] ?>)</div>
+            <div class="cashier">Cashier: <?= $cashier_name ?></div>
+            <?php if ($member_name): ?>
+            <div class="member">Member: <?= $member_name ?> (<?= $member_code ?>)</div>
             <?php endif; ?>
         </div>
         

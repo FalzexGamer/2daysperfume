@@ -22,15 +22,13 @@ $total_products = mysqli_fetch_array($query_total_products);
 $query_low_stock = mysqli_query($conn, "SELECT COUNT(*) as count FROM products WHERE stock_quantity <= min_stock_level AND is_active = 1");
 $low_stock = mysqli_fetch_array($query_low_stock);
 
-$query_total_members = mysqli_query($conn, "SELECT COUNT(*) as count FROM members WHERE is_active = 1");
+$query_total_members = mysqli_query($conn2, "SELECT COUNT(*) as count FROM users WHERE is_guest = 0");
 $total_members = mysqli_fetch_array($query_total_members);
 
 // Get recent sales
 $query_recent_sales = mysqli_query($conn, "
-    SELECT s.*, m.name as member_name, u.full_name as cashier_name 
+    SELECT s.*, s.member_id, s.user_id
     FROM sales s 
-    LEFT JOIN members m ON s.member_id = m.id 
-    LEFT JOIN users u ON s.user_id = u.id 
     ORDER BY s.created_at DESC 
     LIMIT 10
 ");
@@ -125,13 +123,34 @@ $query_top_products = mysqli_query($conn, "
                 </div>
                 <div class="p-6">
                     <div class="space-y-4">
-                        <?php while ($sale = mysqli_fetch_array($query_recent_sales)): ?>
+                        <?php 
+                        // Reset the query result pointer
+                        mysqli_data_seek($query_recent_sales, 0);
+                        while ($sale = mysqli_fetch_array($query_recent_sales)): 
+                            // Get member name from conn2 database
+                            $member_name = 'Walk-in Customer';
+                            if ($sale['member_id'] > 0) {
+                                $member_query = mysqli_query($conn2, "SELECT CONCAT(first_name, ' ', last_name) as full_name FROM users WHERE id = " . $sale['member_id']);
+                                if ($member_result = mysqli_fetch_array($member_query)) {
+                                    $member_name = $member_result['full_name'];
+                                }
+                            }
+                            
+                            // Get cashier name from conn2 database
+                            $cashier_name = 'Unknown';
+                            if ($sale['user_id'] > 0) {
+                                $cashier_query = mysqli_query($conn2, "SELECT CONCAT(first_name, ' ', last_name) as full_name FROM users WHERE id = " . $sale['user_id']);
+                                if ($cashier_result = mysqli_fetch_array($cashier_query)) {
+                                    $cashier_name = $cashier_result['full_name'];
+                                }
+                            }
+                        ?>
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-gray-900"><?= $sale['invoice_number'] ?></p>
                                 <p class="text-sm text-gray-500">
-                                    <?= $sale['member_name'] ? $sale['member_name'] : 'Walk-in Customer' ?> • 
-                                    <?= $sale['cashier_name'] ?>
+                                    <?= $member_name ?> • 
+                                    <?= $cashier_name ?>
                                 </p>
                             </div>
                             <div class="text-right">
