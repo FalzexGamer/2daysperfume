@@ -17,18 +17,47 @@ if (!$current_session) {
     $current_session_id = $current_session['id'];
 }
 
-// Get categories and products for sidebar
-$categories_query = mysqli_query($conn, "SELECT * FROM categories WHERE is_active = 1 ORDER BY name");
+// Get categories and products for sidebar (from mobile catalog)
 $categories = [];
-while ($category = mysqli_fetch_array($categories_query)) {
-    $category_id = $category['id'];
-    $products_query = mysqli_query($conn, "SELECT id, name, sku, selling_price, stock_quantity, img FROM products WHERE category_id = $category_id AND is_active = 1 ORDER BY name");
-    $products = [];
-    while ($product = mysqli_fetch_array($products_query)) {
-        $products[] = $product;
+$categories_query = mysqli_query($conn2, "SELECT id, name FROM categories WHERE is_active = 1 ORDER BY sort_order, name");
+
+if ($categories_query) {
+    while ($category = mysqli_fetch_assoc($categories_query)) {
+        $category_id = (int)$category['id'];
+        $products = [];
+
+        $product_sql = "
+            SELECT id, name, price, sale_price, stock_quantity, image
+            FROM products
+            WHERE category_id = {$category_id} AND is_active = 1
+            ORDER BY name
+        ";
+
+        $products_query = mysqli_query($conn2, $product_sql);
+
+        if ($products_query) {
+            while ($product = mysqli_fetch_assoc($products_query)) {
+                $sellingPrice = 0.0;
+                if (isset($product['sale_price']) && $product['sale_price'] !== '' && $product['sale_price'] !== null) {
+                    $sellingPrice = (float)$product['sale_price'];
+                } elseif (isset($product['price']) && $product['price'] !== '' && $product['price'] !== null) {
+                    $sellingPrice = (float)$product['price'];
+                }
+
+                $products[] = [
+                    'id' => (int)$product['id'],
+                    'name' => $product['name'],
+                    'sku' => 'P' . str_pad((string)$product['id'], 6, '0', STR_PAD_LEFT),
+                    'selling_price' => $sellingPrice,
+                    'stock_quantity' => isset($product['stock_quantity']) ? (int)$product['stock_quantity'] : 0,
+                    'img' => $product['image'] ?? ''
+                ];
+            }
+        }
+
+        $category['products'] = $products;
+        $categories[] = $category;
     }
-    $category['products'] = $products;
-    $categories[] = $category;
 }
 ?>
 
@@ -133,8 +162,20 @@ while ($category = mysqli_fetch_array($categories_query)) {
                             <button onclick="addProductToCartFromSidebar(<?= $product['id'] ?>)" 
                                     class="flex items-center p-2 text-sm text-gray-600 rounded-lg hover:bg-green-50 hover:text-green-600 transition-colors border border-gray-100 hover:border-green-200">
                                 <div class="flex items-center w-full">
-                                    <?php if ($product['img'] && $product['img'] !== '-'): ?>
-                                        <img src="uploads/products/<?= htmlspecialchars($product['img']) ?>" alt="<?= htmlspecialchars($product['name']) ?>" class="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 object-cover flex-shrink-0 mr-2">
+                                    <?php
+                                        $imagePath = '';
+                                        if (!empty($product['img']) && $product['img'] !== '-') {
+                                            if (preg_match('/^(https?:\/\/|\/)/', $product['img'])) {
+                                                $imagePath = $product['img'];
+                                            } elseif (strpos($product['img'], '/') !== false) {
+                                                $imagePath = $product['img'];
+                                            } else {
+                                                $imagePath = 'uploads/products/' . $product['img'];
+                                            }
+                                        }
+                                    ?>
+                                    <?php if ($imagePath): ?>
+                                        <img src="<?= htmlspecialchars($imagePath) ?>" alt="<?= htmlspecialchars($product['name']) ?>" class="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 object-cover flex-shrink-0 mr-2">
                                     <?php else: ?>
                                         <div class="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 mr-2">
                                             <i class="fas fa-box text-white text-xs sm:text-sm"></i>
@@ -828,40 +869,6 @@ while ($category = mysqli_fetch_array($categories_query)) {
     </div>
 </div>
 
-<!-- Note Modal -->
-<div id="note-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50">
-    <div class="flex items-center justify-center min-h-screen p-2 sm:p-4">
-        <div class="backdrop-blur-md bg-white/95 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border border-white/20">
-            <div class="p-4 sm:p-6 lg:p-8 border-b border-gray-200/50 bg-gradient-to-r from-gray-50/50 to-gray-100/50">
-                <div class="flex items-center space-x-2 sm:space-x-3">
-                    <div class="p-2 sm:p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl">
-                        <i class="fas fa-sticky-note text-white text-lg sm:text-xl"></i>
-                    </div>
-                    <h3 class="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Add Note to Item</h3>
-                </div>
-            </div>
-            <div class="p-4 sm:p-6 lg:p-8">
-                <div class="space-y-4 lg:space-y-6">
-                    <div class="space-y-2">
-                        <label class="block text-xs lg:text-sm font-semibold text-gray-700">Item Note</label>
-                        <textarea id="item-note" rows="4" placeholder="Enter any special instructions or notes for this item..." 
-                                  class="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none text-sm lg:text-base"></textarea>
-                    </div>
-                </div>
-            </div>
-            <div class="p-4 sm:p-6 lg:p-8 border-t border-gray-200/50 bg-gradient-to-r from-gray-50/50 to-gray-100/50 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
-                <button onclick="closeNoteModal()" class="px-4 lg:px-6 py-2 lg:py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium text-sm lg:text-base">
-                    Cancel
-                </button>
-                <button onclick="saveItemNote()" class="px-4 lg:px-6 py-2 lg:py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium text-sm lg:text-base">
-                    <i class="fas fa-save mr-2"></i>
-                    Save Note
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Payment Method Selection Modal -->
 <div id="payment-method-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-2 sm:p-4">
@@ -927,7 +934,6 @@ while ($category = mysqli_fetch_array($categories_query)) {
 let cart = [];
 let currentPaymentMethod = '';
 let currentPaymentMethodId = null;
-let currentCartItemId = null;
 
 // Load cart on page load
 $(document).ready(function() {
@@ -1583,79 +1589,6 @@ function closePaymentModal() {
     $('#amount-received').val('');
 }
 
-// Note modal functions
-function openNoteModal(cartItemId) {
-    currentCartItemId = cartItemId;
-    $('#note-modal').removeClass('hidden');
-    $('body').addClass('overflow-hidden');
-    
-    // Load existing note if any
-    loadCartItemNote(cartItemId);
-}
-
-function closeNoteModal() {
-    $('#note-modal').addClass('hidden');
-    $('body').removeClass('overflow-hidden');
-    $('#item-note').val('');
-    currentCartItemId = null;
-}
-
-function loadCartItemNote(cartItemId) {
-    $.ajax({
-        url: 'ajax/get-cart-item-note.php',
-        type: 'GET',
-        data: { cart_id: cartItemId },
-        success: function(response) {
-            try {
-                const data = JSON.parse(response);
-                if (data.success) {
-                    $('#item-note').val(data.note || '');
-                }
-            } catch (e) {
-                console.error('Error loading cart item note:', e);
-            }
-        },
-        error: function() {
-            console.error('Error loading cart item note');
-        }
-    });
-}
-
-function saveItemNote() {
-    const note = $('#item-note').val().trim();
-    
-    if (!currentCartItemId) {
-        showAlert('No cart item selected', 'error');
-        return;
-    }
-    
-    $.ajax({
-        url: 'ajax/save-cart-item-note.php',
-        type: 'POST',
-        data: { 
-            cart_id: currentCartItemId,
-            note: note
-        },
-        success: function(response) {
-            try {
-                const data = JSON.parse(response);
-                if (data.success) {
-                    closeNoteModal();
-                    updateCart();
-                    showAlert('Note saved successfully', 'success');
-                } else {
-                    showAlert(data.message || 'Error saving note', 'error');
-                }
-            } catch (e) {
-                showAlert('Error processing response', 'error');
-            }
-        },
-        error: function() {
-            showAlert('Error saving note', 'error');
-        }
-    });
-}
-
 // Payment method modal functions
 function openPaymentMethodModal() {
     $('#payment-method-modal').removeClass('hidden');
@@ -2146,7 +2079,7 @@ $(window).on('orientationchange', function() {
 });
 
 // Close modals when clicking outside
-$(document).on('click', '#product-modal, #payment-modal, #member-modal, #quick-add-member-modal, #payment-method-modal, #note-modal', function(e) {
+$(document).on('click', '#product-modal, #payment-modal, #member-modal, #quick-add-member-modal, #payment-method-modal', function(e) {
     if (e.target === this) {
         if ($('#product-modal').hasClass('hidden') === false) {
             closeProductModal();
@@ -2162,9 +2095,6 @@ $(document).on('click', '#product-modal, #payment-modal, #member-modal, #quick-a
         }
         if ($('#payment-method-modal').hasClass('hidden') === false) {
             closePaymentMethodModal();
-        }
-        if ($('#note-modal').hasClass('hidden') === false) {
-            closeNoteModal();
         }
     }
 });
@@ -2186,9 +2116,6 @@ $(document).on('keydown', function(e) {
         }
         if (!$('#payment-method-modal').hasClass('hidden')) {
             closePaymentMethodModal();
-        }
-        if (!$('#note-modal').hasClass('hidden')) {
-            closeNoteModal();
         }
         if (!$('#qr-scanner-modal').hasClass('hidden')) {
             closeQRScanner();

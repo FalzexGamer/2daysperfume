@@ -17,21 +17,26 @@ if (!$cart_id || $quantity <= 0 || !$user_id) {
 
 // Verify cart item belongs to current user
 $query_verify = mysqli_query($conn, "
-    SELECT c.*, p.stock_quantity 
-    FROM cart c 
-    JOIN products p ON c.product_id = p.id 
-    WHERE c.id = $cart_id AND c.user_id = $user_id AND c.status = 'active'
+    SELECT *
+    FROM cart
+    WHERE id = $cart_id AND user_id = $user_id AND status = 'active'
 ");
 
-$cart_item = mysqli_fetch_array($query_verify);
+$cart_item = mysqli_fetch_assoc($query_verify);
 
 if (!$cart_item) {
     echo json_encode(['success' => false, 'message' => 'Cart item not found']);
     exit;
 }
 
-// Check stock availability
-if ($quantity > $cart_item['stock_quantity']) {
+// Check stock availability from remote catalog
+$product_id = (int)$cart_item['product_id'];
+$stock_check = mysqli_query($conn2, "SELECT stock_quantity FROM products WHERE id = $product_id");
+$product_data = mysqli_fetch_assoc($stock_check);
+
+$available_stock = isset($product_data['stock_quantity']) ? (int)$product_data['stock_quantity'] : 0;
+
+if ($quantity > $available_stock) {
     echo json_encode(['success' => false, 'message' => 'Requested quantity exceeds available stock']);
     exit;
 }

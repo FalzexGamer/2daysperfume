@@ -41,11 +41,11 @@ if (!empty($member_id)) {
 }
 
 // Get cart items from database
+
 $query_cart_items = mysqli_query($conn, "
-    SELECT c.*, p.name, p.barcode, p.stock_quantity, p.img 
-    FROM cart c 
-    JOIN products p ON c.product_id = p.id 
-    WHERE c.user_id = $user_id AND c.status = 'active' 
+    SELECT c.*
+    FROM cart c
+    WHERE c.user_id = $user_id AND c.status = 'active'
     ORDER BY c.created_at ASC
 ");
 
@@ -53,51 +53,89 @@ $cart = [];
 $html = '';
 $subtotal = 0;
 
-while ($item = mysqli_fetch_array($query_cart_items)) {
-    $cart[] = [
+$productMap = [];
+$productIds = [];
+
+while ($item = mysqli_fetch_assoc($query_cart_items)) {
+    $cart[] = $item;
+    $productIds[] = (int)$item['product_id'];
+}
+
+if (!empty($productIds)) {
+    $uniqueIds = array_unique($productIds);
+    $uniqueIds = array_map('intval', $uniqueIds);
+    $idList = implode(',', $uniqueIds);
+    if ($idList !== '') {
+        $products_result = mysqli_query($conn2, "SELECT id, name, price, sale_price, stock_quantity, image FROM products WHERE id IN ($idList)");
+        if ($products_result) {
+            while ($prod = mysqli_fetch_assoc($products_result)) {
+                $productMap[$prod['id']] = $prod;
+            }
+        }
+    }
+}
+
+$renderedCart = [];
+
+foreach ($cart as $item) {
+    $product = $productMap[$item['product_id']] ?? null;
+    $productName = $product['name'] ?? 'Product #' . $item['product_id'];
+    $productImage = $product['image'] ?? '';
+    $stockQuantity = isset($product['stock_quantity']) ? (int)$product['stock_quantity'] : 0;
+
+    $renderedCart[] = [
         'id' => $item['id'],
         'product_id' => $item['product_id'],
-        'name' => $item['name'],
+        'name' => $productName,
         'sku' => $item['sku'],
         'price' => $item['price'],
         'quantity' => $item['quantity'],
         'total' => $item['subtotal'],
-        'notes' => $item['notes'] ?? ''
+        'stock_quantity' => $stockQuantity,
+        'image' => $productImage,
     ];
     
+    $imageHtml = '';
+    if (!empty($productImage) && $productImage !== '-') {
+        if (preg_match('/^(https?:\/\/|\/)/', $productImage)) {
+            $src = $productImage;
+        } elseif (strpos($productImage, '/') !== false) {
+            $src = $productImage;
+        } else {
+            $src = 'uploads/products/' . $productImage;
+        }
+        $imageHtml = '<img src="' . htmlspecialchars($src) . '" alt="' . htmlspecialchars($productName) . '" class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl object-cover border border-gray-200">';
+    } else {
+        $imageHtml = '<div class="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <i class="fas fa-box text-white text-xs lg:text-sm"></i>
+        </div>';
+    }
+
     $html .= '
     <div class="group backdrop-blur-sm bg-white/70 rounded-xl shadow-sm border border-white/20 p-3 lg:p-4 hover:shadow-lg transition-all duration-200">
         <div class="flex items-center space-x-2 lg:space-x-4">
             <!-- Product Icon -->
             <div class="flex-shrink-0">
-                ' . ($item['img'] && $item['img'] !== '-' ? 
-                    '<img src="uploads/products/' . htmlspecialchars($item['img']) . '" alt="' . htmlspecialchars($item['name']) . '" class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl object-cover border border-gray-200">' :
-                    '<div class="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                        <i class="fas fa-box text-white text-xs lg:text-sm"></i>
-                    </div>') . '
+                ' . $imageHtml . '
             </div>
-            
+
             <!-- Product Info -->
             <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between mb-1">
-                    <h4 class="font-semibold text-gray-900 text-xs lg:text-sm truncate">' . htmlspecialchars($item['name']) . '</h4>
+                    <h4 class="font-semibold text-gray-900 text-xs lg:text-sm truncate">' . htmlspecialchars($productName) . '</h4>
                     <div class="flex items-center space-x-1">
-                        <button onclick="openNoteModal(' . $item['id'] . ')" class="' . (!empty($item['notes']) ? 'text-blue-600 bg-blue-50' : 'text-blue-500 hover:text-blue-700') . ' p-1 hover:bg-blue-50 rounded-lg transition-colors duration-200 group-hover:opacity-100 opacity-0" title="' . (!empty($item['notes']) ? 'Edit Note' : 'Add Note') . '">
-                            <i class="fas fa-sticky-note text-xs lg:text-sm"></i>
-                        </button>
                         <button onclick="removeFromCart(' . $item['id'] . ')" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-colors duration-200 group-hover:opacity-100 opacity-0" title="Remove Item">
                             <i class="fas fa-trash text-xs lg:text-sm"></i>
                         </button>
                     </div>
                 </div>
                 <p class="text-xs text-gray-500 font-mono mb-1 lg:mb-2">' . htmlspecialchars($item['sku']) . '</p>
-                ' . (!empty($item['notes']) ? '<div class="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg mb-2 border-l-2 border-blue-300"><i class="fas fa-sticky-note mr-1"></i>' . htmlspecialchars($item['notes']) . '</div>' : '') . '
                 <div class="flex items-center justify-between">
                     <div class="text-xs lg:text-sm font-bold text-blue-600">RM ' . number_format($item['price'], 2) . '</div>
                     <div class="text-xs lg:text-sm font-semibold text-gray-900">RM ' . number_format($item['subtotal'], 2) . '</div>
                 </div>
             </div>
-            
+
             <!-- Quantity Control -->
             <div class="flex-shrink-0">
                 <div class="flex items-center space-x-1 lg:space-x-2">
@@ -118,7 +156,7 @@ while ($item = mysqli_fetch_array($query_cart_items)) {
     $subtotal += $item['subtotal'];
 }
 
-if (empty($cart)) {
+if (empty($renderedCart)) {
     $html = '<div class="text-center py-8 lg:py-12">
         <div class="w-12 h-12 lg:w-16 lg:h-16 mx-auto bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
             <i class="fas fa-shopping-cart text-xl lg:text-2xl text-gray-400"></i>
@@ -135,7 +173,7 @@ $total = $subtotal - $discount + $tax;
 
 echo json_encode([
     'success' => true,
-    'cart' => $cart,
+    'cart' => $renderedCart,
     'html' => $html,
     'subtotal' => $subtotal,
     'discount' => $discount,

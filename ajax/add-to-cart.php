@@ -24,9 +24,9 @@ if ($quantity <= 0) {
 
 // Get product details (using regular query for compatibility)
 $product_id = intval($product_id); // Sanitize input
-$query = "SELECT * FROM products WHERE id = $product_id AND is_active = 1";
-$result = mysqli_query($conn, $query);
-$product = mysqli_fetch_array($result);
+$query = "SELECT id, name, price, sale_price, stock_quantity FROM products WHERE id = $product_id AND is_active = 1";
+$result = mysqli_query($conn2, $query);
+$product = mysqli_fetch_assoc($result);
 
 if (!$product) {
     echo "ERROR: Product not found";
@@ -34,8 +34,23 @@ if (!$product) {
 }
 
 // Check stock availability
-if ($product['stock_quantity'] <= 0) {
+if ((int)$product['stock_quantity'] <= 0) {
     echo "ERROR: Product \"" . $product['name'] . "\" is out of stock";
+    exit;
+}
+
+$price = 0.0;
+if (isset($product['sale_price']) && $product['sale_price'] !== '' && $product['sale_price'] !== null && (float)$product['sale_price'] > 0) {
+    $price = (float)$product['sale_price'];
+} elseif (isset($product['price']) && $product['price'] !== '' && $product['price'] !== null) {
+    $price = (float)$product['price'];
+}
+
+$sku = 'P' . str_pad((string)$product['id'], 6, '0', STR_PAD_LEFT);
+$availableStock = (int)$product['stock_quantity'];
+
+if ($quantity > $availableStock) {
+    echo "ERROR: Requested quantity exceeds available stock";
     exit;
 }
 
@@ -52,6 +67,11 @@ $existing_item = mysqli_fetch_array($result_existing);
 if ($existing_item) {
     // Update existing item quantity
     $new_quantity = $existing_item['quantity'] + $quantity;
+    if ($new_quantity > $availableStock) {
+        echo "ERROR: Requested quantity exceeds available stock";
+        exit;
+    }
+
     $new_subtotal = $new_quantity * $existing_item['price'];
     $cart_id = intval($existing_item['id']);
     
@@ -69,9 +89,9 @@ if ($existing_item) {
     }
 } else {
     // Add new item to cart
-    $price = floatval($product['selling_price']);
+    $price = floatval($price);
     $subtotal = $price * $quantity;
-    $sku = mysqli_real_escape_string($conn, $product['sku']);
+    $sku = mysqli_real_escape_string($conn, $sku);
     
     $insert_query = "
         INSERT INTO cart (user_id, product_id, sku, quantity, price, subtotal) 

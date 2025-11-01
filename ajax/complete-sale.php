@@ -101,25 +101,23 @@ try {
         $unit_price = $item['price'];
         $total_price = $item['subtotal'];
         
-        // Insert sale item with notes
-        $notes = mysqli_real_escape_string($conn, $item['notes'] ?? '');
         $insert_item = mysqli_query($conn, "
-            INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price, notes) 
-            VALUES ($sale_id, $product_id, $quantity, $unit_price, $total_price, '$notes')
+            INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price) 
+            VALUES ($sale_id, $product_id, $quantity, $unit_price, $total_price)
         ");
         
         if (!$insert_item) {
             throw new Exception('Failed to insert sale item');
         }
         
-        // Update stock
-        $update_stock = mysqli_query($conn, "
-            UPDATE products 
-            SET stock_quantity = stock_quantity - $quantity 
+        // Update stock in mobile catalog
+        $update_stock_remote = mysqli_query($conn2, "
+            UPDATE products
+            SET stock_quantity = GREATEST(stock_quantity - $quantity, 0)
             WHERE id = $product_id
         ");
-        
-        if (!$update_stock) {
+
+        if (!$update_stock_remote || mysqli_affected_rows($conn2) === 0) {
             throw new Exception('Failed to update stock');
         }
         

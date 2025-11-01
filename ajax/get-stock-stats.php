@@ -1,47 +1,40 @@
 <?php
 include __DIR__ . '/../include/conn.php';
 
-// Get stock statistics
-$stats = [];
+$lowStockThreshold = 10;
 
-// Total products
-$query_total = mysqli_query($conn, "SELECT COUNT(*) as count FROM products WHERE is_active = 1");
-$total = mysqli_fetch_array($query_total);
-$stats['total'] = $total['count'];
+$stats = [
+    'total' => 0,
+    'in_stock' => 0,
+    'low_stock' => 0,
+    'out_stock' => 0,
+];
 
-// In stock (stock > min_stock_level)
-$query_in_stock = mysqli_query($conn, "
-    SELECT COUNT(*) as count 
-    FROM products 
-    WHERE stock_quantity > min_stock_level 
-    AND stock_quantity > 0 
-    AND is_active = 1
-");
-$in_stock = mysqli_fetch_array($query_in_stock);
-$stats['in_stock'] = $in_stock['count'];
+$sql = "SELECT stock_quantity, is_out_of_stock, is_active FROM products";
+$result = mysqli_query($conn2, $sql);
 
-// Low stock (stock <= min_stock_level but > 0)
-$query_low_stock = mysqli_query($conn, "
-    SELECT COUNT(*) as count 
-    FROM products 
-    WHERE stock_quantity <= min_stock_level 
-    AND stock_quantity > 0 
-    AND is_active = 1
-");
-$low_stock = mysqli_fetch_array($query_low_stock);
-$stats['low_stock'] = $low_stock['count'];
+if ($result) {
+    while ($row = mysqli_fetch_assoc($result)) {
+        if ((int)$row['is_active'] !== 1) {
+            continue;
+        }
 
-// Out of stock (stock = 0)
-$query_out_stock = mysqli_query($conn, "
-    SELECT COUNT(*) as count 
-    FROM products 
-    WHERE stock_quantity = 0 
-    AND is_active = 1
-");
-$out_stock = mysqli_fetch_array($query_out_stock);
-$stats['out_stock'] = $out_stock['count'];
+        $stats['total']++;
 
-// Return JSON response
+        $stockQty = (int)$row['stock_quantity'];
+        $isOutOfStock = (int)$row['is_out_of_stock'] === 1 || $stockQty <= 0;
+        $isLowStock = !$isOutOfStock && $stockQty <= $lowStockThreshold;
+
+        if ($isOutOfStock) {
+            $stats['out_stock']++;
+        } elseif ($isLowStock) {
+            $stats['low_stock']++;
+        } else {
+            $stats['in_stock']++;
+        }
+    }
+}
+
 header('Content-Type: application/json');
 echo json_encode($stats);
 ?>

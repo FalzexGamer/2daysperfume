@@ -75,7 +75,7 @@
             <?php endif; ?>
 
             <!-- Inventory -->
-            <?php if ($user_permissions['access_products'] == 1 || $user_permissions['access_categories'] == 1 || $user_permissions['access_suppliers'] == 1 || $user_permissions['access_uom'] == 1 || $user_permissions['access_stock_take'] == 1 || $user_permissions['access_inventory_report'] == 1): ?>
+            <?php if ($user_permissions['access_products'] == 1 || $user_permissions['access_suppliers'] == 1 || $user_permissions['access_uom'] == 1 || $user_permissions['access_stock_take'] == 1 || $user_permissions['access_inventory_report'] == 1): ?>
             <div class="space-y-1">
                 <button class="w-full flex items-center justify-between px-4 py-3 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors" onclick="toggleSubmenu('inventory-submenu')">
                     <div class="flex items-center">
@@ -88,11 +88,6 @@
                     <?php if ($user_permissions['access_products'] == 1): ?>
                     <a href="products.php" class="block px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-box mr-2"></i>Products
-                    </a>
-                    <?php endif; ?>
-                    <?php if ($user_permissions['access_categories'] == 1): ?>
-                    <a href="categories.php" class="block px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                        <i class="fas fa-tags mr-2"></i>Categories
                     </a>
                     <?php endif; ?>
                     <?php if ($user_permissions['access_suppliers'] == 1): ?>

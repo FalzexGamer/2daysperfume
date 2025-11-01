@@ -26,10 +26,10 @@ include 'include/sidebar.php';
                     </div>
                     <p class="text-gray-600 text-lg">Manage your inventory products efficiently</p>
                 </div>
-                <button onclick="openAddModal()" class="group relative inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                    <div class="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <i class="fas fa-plus mr-2 relative z-10"></i>
-                    <span class="relative z-10 font-medium">Add Product</span>
+                <button type="button" disabled class="group relative inline-flex items-center px-6 py-3 bg-gray-200 text-gray-500 rounded-xl cursor-not-allowed">
+                    <div class="absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300"></div>
+                    <i class="fas fa-sync mr-2 relative z-10"></i>
+                    <span class="relative z-10 font-medium">Products synced from mobile catalog</span>
                 </button>
             </div>
         </div>
