@@ -1,9 +1,10 @@
 <?php
 include '../include/conn.php';
 
-$query = mysqli_query($conn, "SELECT * FROM members WHERE is_active = 1 ORDER BY name");
+// Read only the id from external customers DB users table
+$query = mysqli_query($conn2, "SELECT id FROM users WHERE is_guest = 0 ORDER BY id");
 
-while ($member = mysqli_fetch_array($query)) {
-    echo '<option value="' . $member['id'] . '">' . $member['name'] . ' (' . $member['member_code'] . ')</option>';
+while ($row = mysqli_fetch_array($query)) {
+    echo '<option value="' . $row['id'] . '">' . $row['id'] . '</option>';
 }
 ?>

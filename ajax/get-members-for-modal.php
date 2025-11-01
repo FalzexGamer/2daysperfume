@@ -5,31 +5,30 @@ include '../include/conn.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-$search = $_GET['search'] ?? '';
+$search = trim($_GET['search'] ?? '');
 
 // Log the search term
 error_log("Search term: " . $search);
 
 // Only search if there's a search term
 if (!empty($search)) {
-    $search_term = '%' . mysqli_real_escape_string($conn2, $search) . '%';
-    $query = "SELECT u.*, ulp.tier, ulp.total_spent
-              FROM users u 
-              LEFT JOIN user_loyalty_points ulp ON u.id = ulp.user_id 
-              WHERE u.is_guest = 0 
-              AND (CONCAT(u.first_name, ' ', u.last_name) LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)
-              ORDER BY 
-                CASE 
-                  WHEN u.email LIKE ? THEN 1
-                  WHEN CONCAT(u.first_name, ' ', u.last_name) LIKE ? THEN 2
-                  ELSE 3
-                END,
-                u.first_name ASC, u.last_name ASC";
-    
-    $stmt = mysqli_prepare($conn2, $query);
-    mysqli_stmt_bind_param($stmt, "sssss", $search_term, $search_term, $search_term, $search_term, $search_term);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
+    // If the search is purely numeric, match EXACT id only
+    if (preg_match('/^\d+$/', $search)) {
+        $id = (int)$search;
+        $query = "SELECT u.*, ulp.tier, ulp.total_spent
+                  FROM users u
+                  LEFT JOIN user_loyalty_points ulp ON u.id = ulp.user_id
+                  WHERE u.is_guest = 0
+                  AND u.id = ?
+                  ORDER BY u.id ASC";
+        $stmt = mysqli_prepare($conn2, $query);
+        mysqli_stmt_bind_param($stmt, "i", $id);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+    } else {
+        // For non-numeric input, return empty to avoid fuzzy matches
+        $result = false;
+    }
 } else {
     // Return empty result when no search term
     $result = false;

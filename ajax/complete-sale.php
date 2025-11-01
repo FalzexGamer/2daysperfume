@@ -151,6 +151,19 @@ try {
     // Commit transaction
     mysqli_commit($conn);
     
+    // Award loyalty points in external customer DB (RM1 = 1 point)
+    if ($member_id) {
+        $points_to_add = (int)floor($total);
+        if ($points_to_add > 0) {
+            // Try update existing row
+            mysqli_query($conn2, "UPDATE user_loyalty_points SET points = points + $points_to_add, total_spent = total_spent + $total WHERE user_id = $member_id");
+            // If no rows updated, insert a new record
+            if (mysqli_affected_rows($conn2) === 0) {
+                mysqli_query($conn2, "INSERT INTO user_loyalty_points (user_id, points, tier, total_spent) VALUES ($member_id, $points_to_add, 'bronze', $total)");
+            }
+        }
+    }
+
     // Clear cart by updating status to 'ordered'
     mysqli_query($conn, "UPDATE cart SET status = 'ordered' WHERE user_id = $user_id AND status = 'active'");
     
